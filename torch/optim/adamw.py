@@ -1,6 +1,6 @@
 import torch
 from torch import Tensor
-from .optimizer import (Optimizer, _use_grad_for_differentiable, _get_value, _dispatch_sqrt,
+from torch.optim.optimizer import (Optimizer, _use_grad_for_differentiable, _get_value, _dispatch_sqrt,
                         _stack_if_compiling, _capturable_doc, _differentiable_doc, _foreach_doc,
                         _fused_doc, _maximize_doc, _default_to_fused_or_foreach, params_t)
 from typing import List, Optional, Tuple, Union
@@ -418,7 +418,7 @@ def _single_tensor_adamw(
             bias_correction1 = 1 - beta1 ** step
             bias_correction2 = 1 - beta2 ** step
 
-            step_size = lr / bias_correction1
+            step_size = param.lambdaG * lr / bias_correction1
             step_size_neg = step_size.neg()
 
             bias_correction2_sqrt = bias_correction2.sqrt()
@@ -450,7 +450,7 @@ def _single_tensor_adamw(
             bias_correction1 = 1 - beta1 ** step
             bias_correction2 = 1 - beta2 ** step
 
-            step_size = lr / bias_correction1
+            step_size = param.lambdaG * lr / bias_correction1
 
             bias_correction2_sqrt = _dispatch_sqrt(bias_correction2)
 
@@ -563,7 +563,7 @@ def _multi_tensor_adamw(
             # Re-assign for clarity as we maintain minimal intermediates: we'll have
             # step_size = - lr / (1 - beta1 ^ t) where t = num_steps
             # bias_correction2_sqrt = sqrt(1 - beta2 ^ t)
-            step_size = bias_correction1
+            step_size = [param.lambdaG * bc1 for param, bc1 in zip(device_params, bias_correction1)]
             bias_correction2_sqrt = bias_correction2
 
             if amsgrad:
@@ -585,7 +585,7 @@ def _multi_tensor_adamw(
             bias_correction1 = [1 - beta1 ** _get_value(step) for step in device_state_steps]
             bias_correction2 = [1 - beta2 ** _get_value(step) for step in device_state_steps]
 
-            step_size = _stack_if_compiling([(lr / bc) * -1 for bc in bias_correction1])
+            step_size = _stack_if_compiling([(param.lambdaG * lr / bc) * -1 for param, bc in zip(device_params, bias_correction1)])
 
             bias_correction2_sqrt = [_dispatch_sqrt(bc) for bc in bias_correction2]
 
